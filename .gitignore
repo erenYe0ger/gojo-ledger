@@ -1,0 +1,23 @@
+# =========================================================================
+# Gojo-Ledger Root Gitignore
+# =========================================================================
+
+# Ignore OS-specific system files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Ignore root-level JetBrains / VS Code configurations if opened from the root
+.idea/
+.vscode/
+*.iml
+
+# Ignore log files generated at the root level
+*.log
+
+# Ignore local environment variables or secrets (crucial for future phases!)
+.env
+.env.local
+
+# Backup fail-safe: Ensure no target directories accidentally bypass the inner gitignore
+**/target/
