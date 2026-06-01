@@ -49,53 +49,53 @@ The transaction path must remain clear of blocking, high-latency external depend
 ## 🏁 Implementation Checkpoints
 
 ### 🟥 Phase 1: Core Domain & Data Infrastructure (The Audit Foundation)
-Focuses entirely on defining the database schema, entity structures, and the mathematical validation of the double-entry engine.
-* [ ] **Checkpoint 1.1: Database Schema Architecture**
-    * Design and deploy the baseline schema for Users, Accounts, Transactions, and Ledger Entries using a migration manager.
-    * Establish structural constraints, composite indexes, and relational integrity.
-* [ ] **Checkpoint 1.2: Base Persistence Layer**
-    * Map JPA/Hibernate entities inside `com.wallet.gojo.ledger`.
-    * Ensure that direct update capabilities on calculated balance fields are strictly blocked or omitted from accessible repositories.
+* [x] **Checkpoint 1.1: Relational Data Topology**
+  * Map high-integrity relational structures for Users, Accounts, Transactions, and Ledger Entries via JPA/Hibernate object-relational mapping.
+  * Establish structural constraints, database-level tracking fields, and strict relationship cascades.
+* [x] **Checkpoint 1.2: Base Persistence Layer**
+  * Implement Spring Data Repositories inside `com.wallet.gojo.ledger.repository` to abstract physical database access.
+  * Enforce state immutability by completely omitting mutable state balance fields from the schema, ensuring balances are purely compiled states.
 * [ ] **Checkpoint 1.3: Double-Entry Transaction Engine**
-    * Build the core service layer that handles fund movements.
-    * Enforce the Zero-Sum Invariant check at the service boundary.
-    * Validate transactional rollbacks: Ensure that if a credit write fails or throws an exception, the corresponding debit write is entirely purged from the system state.
+  * Build the core service layer that handles fund movements.
+  * Enforce the Multi-Currency Zero-Sum Invariant check at the service boundary ($\sum \text{Debits} - \sum \text{Credits} = 0$ per currency asset class).
+  * Enforce system invariants: Prevent standard customer accounts from ever dropping below a zero balance.
+  * Validate transactional rollbacks: Ensure that if a credit write fails, the corresponding debit write is entirely purged via `@Transactional`.
+  * **Add an independent Audit Verifier Service:** A system background process that proves the mathematical sum of every ledger entry balances out to zero.
 
 ### 🟨 Phase 2: Isolation & Concurrency Safety (The Race-Condition Shield)
-Focuses on securing the system against race conditions, over-drafting, and concurrent thread collision.
 * [ ] **Checkpoint 2.1: Pessimistic Locking Strategy**
-    * Integrate database-level transactional locks to block multiple execution paths from modifying the same accounts simultaneously.
-    * Implement deterministic sequence ordering for balance evaluations to prevent database deadlocks.
+  * Integrate database-level transactional locks (`SELECT FOR UPDATE`) to block multiple execution threads from evaluating or modifying the same account balances simultaneously.
+  * Implement a deterministic resource sorting sequence (e.g., always locking the smaller Account ID first) to entirely prevent database deadlocks.
 * [ ] **Checkpoint 2.2: Concurrency Stress Verification**
-    * Develop comprehensive multi-threaded tests that simulate thousands of simultaneous balance extractions and transfers on a single account profile.
-    * Verify that final balances match mathematical expectations and zero accounts drop below valid absolute limits.
+  * Write rigorous multithreaded Java unit tests (using `CountDownLatch` or `ExecutorService`) simulating thousands of rapid, simultaneous balance extractions and cross-transfers on a single account node to prove zero balance leakage.
 
-### 🟩 Phase 3: Idempotency & High-Speed Cache (The Replay Defense)
-Focuses on making the application resilient to network failures and introducing high-speed components to bypass database overhead for read paths.
-* [ ] **Checkpoint 3.1: Idempotency Middleware Integration**
-    * Construct an API interception mechanism that scans for unique tracking identifiers on incoming transfers.
-    * Connect the middleware to an in-memory storage layer to track processing and completed transaction states.
-    * Verify that repeated identical submissions receive immediate deduplicated responses without re-running ledger logic.
-* [ ] **Checkpoint 3.2: Write-Through Caching Architecture**
-    * Introduce high-speed cache caching for account balance lookups.
-    * Sync cache evictions and write-updates strictly with successful transactional completions to avoid dirty reads.
+### 🟩 Phase 3: Edge Security, Idempotency & Caching (The Gateway Layer)
+* [ ] **Checkpoint 3.1: JWT Authentication & Route Security**
+  * Introduce stateless JWT verification filters using Spring Security to securely validate user identities before reaching the ledger.
+* [ ] **Checkpoint 3.2: Idempotency Middleware Integration**
+  * Construct an API interceptor layer that monitors incoming payloads for an `X-Idempotency-Key`.
+  * Tie this key to Redis to reject or return deduplicated responses for identical client requests within a 5-minute window, eliminating double-billing.
+* [ ] **Checkpoint 3.3: Write-Through Caching Architecture**
+  * Integrate Redis caching for rapid account balance reads, keeping it synchronized exclusively upon successful database commits to prevent dirty reads.
 
 ### 🟦 Phase 4: Event-Driven Decomposition (The Distribution Layer)
-Focuses on decoupling peripheral side-effects from the core transaction loop by turning the application into an event publisher.
 * [ ] **Checkpoint 4.1: Message Broker Integration**
-    * Introduce an enterprise-grade message streaming broker into the stack.
-    * Configure abstract producers capable of serializing financial event payloads securely.
+  * Spin up Apache Kafka to serve as our asynchronous event backbone.
 * [ ] **Checkpoint 4.2: Asynchronous Event Dispatching**
-    * Hook into Spring's transactional lifecycle listeners to emit a `TransactionSettledEvent` only after the database commit successfully resolves.
-* [ ] **Checkpoint 4.3: Decoupled Microservice Simulation**
-    * Construct a completely standalone consumer module (e.g., Notification Service).
-    * Ensure this module independently digests event data streams from the broker to trigger fake SMS/Email alerts without blocking the primary ledger thread.
+  * Hook into Spring's transactional lifecycle listeners to emit a `TransactionSettledEvent` *only* after the database transaction successfully commits.
+* [ ] **Checkpoint 4.3: Decoupled Notification Microservice**
+  * Build a completely standalone Spring Boot module that consumes transaction events from Kafka to generate real-time processing logs without adding latency to the main transaction engine.
 
 ### 🟪 Phase 5: Productionization & Test Isolation (The Deployment Validation)
-Focuses on containerization, testing architecture, and preparing Gojo-Ledger for a true distributed deployment.
 * [ ] **Checkpoint 5.1: Containerized Infrastructure**
-    * Construct standard multi-stage build files for the Java application container.
-    * Orchestrate configuration scripts to spin up dependencies (PostgreSQL, Redis, Kafka) locally via single commands.
+  * Orchestrate Docker Compose configuration scripts to spin up dependencies (PostgreSQL, Redis, Kafka) locally via single commands.
 * [ ] **Checkpoint 5.2: Real-Environment Integration Testing**
-    * Refactor the automation test suites to utilize native test isolation utilities (such as dynamic ephemeral container systems).
-    * Ensure the integration suite boots up and executes assertions against real, disposable instances of PostgreSQL, Redis, and Kafka during compilation.
+  * Refactor automation test suites to use **Testcontainers** so your integration tests run against real, ephemeral instances of Postgres and Kafka during compilation.
+
+### 🎨 Phase 6: The Real-Time Frontend (The Executive Dashboard)
+* [ ] **Checkpoint 6.1: Next.js Foundation & Secure Authentication**
+  * Scaffold the Next.js frontend and establish secure JWT state management using HTTP-Only cookies.
+* [ ] **Checkpoint 6.2: Real-Time Command Dashboard**
+  * Build an interactive UI utilizing WebSockets or SSE to instantly stream transaction history, dynamic wallet balances, and ledger auditing logs.
+* [ ] **Checkpoint 6.3: Client-Side Idempotency Safeguards**
+  * Implement robust UI button state locks and automatic client-side UUID generation to intercept duplicate submissions at the glass layer.
