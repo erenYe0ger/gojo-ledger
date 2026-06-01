@@ -3,6 +3,7 @@ package com.wallet.gojo.ledger.service;
 import com.wallet.gojo.ledger.domain.entities.LedgerEntry;
 import com.wallet.gojo.ledger.domain.entities.Transaction;
 import com.wallet.gojo.ledger.domain.enums.EntryType;
+import com.wallet.gojo.ledger.repository.LedgerEntryRepository;
 import com.wallet.gojo.ledger.repository.TransactionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -19,12 +20,13 @@ public class LedgerServiceTest {
 
     private LedgerService ledgerService;
     private TransactionRepository transactionRepository;
+    private LedgerEntryRepository ledgerEntryRepository;
 
     // This runs BEFORE every single test to reset our environment clean
     @BeforeEach
     void setUp() {
         transactionRepository = Mockito.mock(TransactionRepository.class);
-        ledgerService = new LedgerService(transactionRepository);
+        ledgerService = new LedgerService(transactionRepository, ledgerEntryRepository);
     }
 
     @Test
