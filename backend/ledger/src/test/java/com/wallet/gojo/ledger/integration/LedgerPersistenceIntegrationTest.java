@@ -53,6 +53,15 @@ public class LedgerPersistenceIntegrationTest {
                     .build()
         );
 
+        // create a bank vault account (ASSET type)
+        Account vaultAccount = accountRepository.save(
+                Account.builder()
+                    .user(masterUser)
+                    .accountType(AccountType.ASSET)
+                    .currency("USD")
+                    .build()
+        );
+
         // persist real accounts for alice and bob
         aliceAccount = accountRepository.save(
                 Account.builder()
@@ -68,6 +77,25 @@ public class LedgerPersistenceIntegrationTest {
                     .currency("USD")
                     .build()
         );
+
+
+        // mint $100 from vault to alice's wallet
+        LedgerEntry vaultDebit = LedgerEntry.builder()
+                .account(vaultAccount)
+                .entryType(EntryType.DEBIT)
+                .amount(10000L) // $100.00
+                .build();
+
+        LedgerEntry aliceCredit = LedgerEntry.builder()
+                .account(aliceAccount)
+                .entryType(EntryType.CREDIT)
+                .amount(10000L) // $100.00
+                .build();
+
+        ledgerService.executeTransaction(UUID.randomUUID().toString(),
+                "Capital Injection to Alice",
+                List.of(vaultDebit, aliceCredit));
+
     }
 
 
@@ -96,7 +124,8 @@ public class LedgerPersistenceIntegrationTest {
                 List.of(aliceDebit, bobCredit));
 
         // Assert - verify transaction is persisted and can be retrieved
-        Transaction retrievedTransaction = transactionRepository.findById(savedTransaction.getId())
+        Transaction retrievedTransaction = transactionRepository
+                .findByIdWithEntries(savedTransaction.getId())
                 .orElse(null);
 
         assertNotNull(retrievedTransaction,
