@@ -5,6 +5,7 @@ import com.wallet.gojo.ledger.domain.entities.LedgerEntry;
 import com.wallet.gojo.ledger.domain.entities.Transaction;
 import com.wallet.gojo.ledger.domain.enums.AccountType;
 import com.wallet.gojo.ledger.domain.enums.EntryType;
+import com.wallet.gojo.ledger.repository.AccountRepository;
 import com.wallet.gojo.ledger.repository.LedgerEntryRepository;
 import com.wallet.gojo.ledger.repository.TransactionRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,6 +13,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -23,21 +25,36 @@ public class LedgerServiceTest {
 
     private TransactionRepository transactionRepository;
     private LedgerEntryRepository ledgerEntryRepository;
+    private AccountRepository accountRepository;
     private LedgerService ledgerService;
 
     private Account mockAccount;
+    private UUID mockAccountId;
 
     // This runs BEFORE every single test to reset our environment clean
     @BeforeEach
     void setUp() {
         transactionRepository = Mockito.mock(TransactionRepository.class);
         ledgerEntryRepository = Mockito.mock(LedgerEntryRepository.class);
+        accountRepository = Mockito.mock(AccountRepository.class);
 
-        ledgerService = new LedgerService(transactionRepository, ledgerEntryRepository);
+        ledgerService = new LedgerService(transactionRepository, ledgerEntryRepository, accountRepository);
+
+        mockAccountId = UUID.randomUUID();
 
         mockAccount = Mockito.mock(Account.class);
-        when(mockAccount.getId()).thenReturn(UUID.randomUUID());
+        when(mockAccount.getId()).thenReturn(mockAccountId);
         when(mockAccount.getAccountType()).thenReturn(AccountType.LIABILITY);
+
+        when(accountRepository.findAllByIdsForUpdate(any(List.class)))
+                .thenReturn(List.of(mockAccount));
+
+        List<Object[]> mockBalanceResult = new ArrayList<>();
+        mockBalanceResult.add(new Object[]{mockAccountId, 10000L}); // $100 in cents
+        when(ledgerEntryRepository.getBalancesForAccountIds(any(List.class)))
+                .thenReturn(mockBalanceResult);
+
+
     }
 
     @Test
@@ -65,10 +82,6 @@ public class LedgerServiceTest {
         // When service saves the transaction, return it back
         when(transactionRepository.save(any(Transaction.class))).
                 thenAnswer(invocation -> invocation.getArgument(0));
-
-        // When service checks the balance for the debit entry's account, return a sufficient balance
-        when(ledgerEntryRepository.getBalanceByAccountId(any(UUID.class)))
-                .thenReturn(10000L); // $100 in cents (sufficient balance for debit)
 
 
         // ACT (call the method under test)
@@ -105,9 +118,6 @@ public class LedgerServiceTest {
 
         List<LedgerEntry> entries = List.of(debitEntry, creditEntry);
 
-        // When service checks the balance for the debit entry's account, return a sufficient balance
-        when(ledgerEntryRepository.getBalanceByAccountId(any(UUID.class)))
-                .thenReturn(10000L); // $100 in cents (sufficient balance for debit)
 
         // Act & Assert
         IllegalArgumentException exception = assertThrows(
